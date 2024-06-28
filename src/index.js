@@ -6,14 +6,21 @@ require('dotenv').config({path: './env'});
 
 import dotenv from "dotenv";
 import connectDB from "./db/index.js";
+import { app } from "./app.js";
 
 dotenv.config({
     path: './env'
 })
 
 connectDB()
-
-
+.then(() => {
+    app.listen(process.env.PORT || 8000, () => {
+        console.log(`Server is running`);
+    })
+})
+.catch((err) => {
+    console.log("MONGO db connection failed !!!", err);
+})
 
 /* --first approach of connecting to a database by making IIFE in index file itself ,used try catch error handling n used async as well
 import mongoose from "mongoose";
