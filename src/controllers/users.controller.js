@@ -4,7 +4,26 @@ import {User} from "../models/users.Model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+//p2:step-5: generate access and refresh token for login purposes
+const generateAccessAndRefreshTokens = async(userId) =>
+{
+    try{
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()    // Access token is given to user via methods
+        const refreshToken = user.generateRefreshToken()  // Refresh Token is stored in database
+
+        user.refreshToken = refreshToken //adding value in object
+        await user.save({validateBeforeSave: false})  //saving the object - no need for validation, save directly
+
+        return {accessToken, refreshToken}
+
+    } catch(error){
+        throw new ApiError(500, "Something went wrong while generating refresh and access tokens")
+    }
+};
+
 const registerUser = asyncHandler( async (req, res) => {
+    //p1: steps----------------
     //1. get user details from frontend
     //2. validation - not empty string
     //3. check if user already exists: username , email
@@ -83,7 +102,94 @@ const registerUser = asyncHandler( async (req, res) => {
     )
 });
 
+const loginUser = asyncHandler(async (req,res) =>{
+    //p2:steps------------------------------------------------
+    //s-1: req body -> data (take data from request body)
+    //s-2: username or email
+    //s-3: find the user
+    //s-4: password check
+    //s-5: generate access and refresh token, send it to user
+    //s-6: send cookie
+//------------------------------------------------------------------------------------------------
+    //step-1: data from request body
+    const {email, username, password} = req.body
+
+    //step-2: username/password requirement
+    if(!(username || email )){
+        throw new ApiError(400, "username or password is required")
+    }
+
+    //step-3: find the user
+    const user = await User.findOne({
+        $or:[{username},{email}]
+    })
+    if(!user){
+        throw new ApiError(404, "User does not exist")
+    }
+
+    //step-4:password check
+    await user.isPasswordCorrect(password)    //user-database instance by us, User-mongo instance, password-from request body
+    if(!isPasswordValid){
+        throw new ApiError(401,"Invalid user credentials")
+    }
+
+    //step-5: send to the user
+    const{accessToken, refreshToken} = await
+    generateAccessAndRefreshTokens(user._id)
+
+    //step-6: cookies
+    const loggedInUser = await User.findById(user._id).
+    select("-password -refreshToken")
+
+    //sending cookies
+    const options = {
+        httpOnly: true, // by default cookies can be modified by anyone in frontend,true attribute changes it to modifiable by server only
+        secure: true,  //can be modified only on server
+    }
+    return res
+    .status(200)
+    .cookie("accessToken",accessToken,options)      //access token set
+    .cookie("refreshToken",refreshToken,options)    //refresh token set
+    .json(//json response from server
+        new ApiResponse(
+            200,
+            {
+                user: loggedInUser, accessToken, refreshToken //we r sending accessToken and refreshToken separately again to consider the case-> user wants to save access and refresh token by himself for any reason
+            },
+            "User logged in successfully"
+        )
+    )
+} )
+
+//logout -> clear 1.cookies, 2.accessToken and refreshToken
+const logoutUser = asyncHandler(async(req, res)=>{
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                refreshToken: undefined,
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200,{},"User logged Out"))
+
+})
 
 export {
-    registerUser
+    registerUser,
+    loginUser,
+    logoutUser
 };
