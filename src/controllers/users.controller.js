@@ -201,7 +201,7 @@ const refreshAccessToken = asyncHandler(async (req, res)=>{
     //1.incomingRefreshToken is different from refreshToken and named so because refreshToken is already in the database
     //and to hit the endpoint of API for matching we access refreshToken from the cookies in the form of incoming..,
     //2.req.cookies=>access it from cookies ;req.body=>if using mobile application
-    if(incomingRefreshToken){
+    if(!incomingRefreshToken){
         throw new ApiError(401,"unauthorized request")
     }
     try {
