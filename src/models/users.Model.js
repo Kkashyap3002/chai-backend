@@ -52,7 +52,7 @@ const userSchema = new Schema(
 );
 
 //pre-hooks in middleware[encryption]
-/*** userSchema.pre("save", () => {})   ------this syntax is wrong in pre as arrow fn => in callback does not have ref of this, below one  is correct   ***/
+/*** userSchema.pre("save", () => {})   ------this syntax is wrong in pre as arrow fn => in callback does not have ref of this, below one is correct   ***/
 userSchema.pre("save", async function(next) {
     if(!this.isModified("password")) return next();
     this.password = await bcrypt.hash(this.password,10)
